@@ -19,20 +19,22 @@ RUN npm run build
 # ==============================
 FROM php:8.4-fpm
 
-RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    libzip-dev \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    && docker-php-ext-install \
-    pdo_mysql \
-    mbstring \
-    xml \
-    bcmath \
-    zip \
-    && apt-get clean \
+RUN apt-get update && apt-get install -y 
+    git 
+    unzip 
+    libzip-dev 
+    libpng-dev 
+    libonig-dev 
+    libxml2-dev 
+    libsqlite3-dev 
+    && docker-php-ext-install 
+    pdo_mysql 
+    pdo_sqlite 
+    mbstring 
+    xml 
+    bcmath 
+    zip 
+    && apt-get clean 
     && rm -rf /var/lib/apt/lists/*
 
 # Composer
@@ -44,27 +46,28 @@ WORKDIR /var/www
 COPY . .
 
 # Install PHP dependencies
-RUN composer install \
-    --no-interaction \
-    --prefer-dist \
+RUN composer install 
+    --no-interaction 
+    --prefer-dist 
     --optimize-autoloader
 
 # Copy Vite production build into Laravel backend
 COPY --from=frontend-builder /app/public/build /var/www/public/build
 
-# Laravel permissions
-RUN mkdir -p \
-    /var/www/storage/framework/views \
-    /var/www/storage/framework/cache \
-    /var/www/storage/framework/sessions \
+# Create Laravel writable directories
+RUN mkdir -p 
+    /var/www/storage/framework/views 
+    /var/www/storage/framework/cache 
+    /var/www/storage/framework/sessions 
     /var/www/bootstrap/cache
 
-RUN chown -R www-data:www-data \
-    /var/www/storage \
+# Set Laravel permissions
+RUN chown -R www-data:www-data 
+    /var/www/storage 
     /var/www/bootstrap/cache
 
-RUN chmod -R 775 \
-    /var/www/storage \
+RUN chmod -R 775 
+    /var/www/storage 
     /var/www/bootstrap/cache
 
 EXPOSE 9000

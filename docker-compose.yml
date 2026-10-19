@@ -1,95 +1,75 @@
 services:
-
   frontend:
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile
-
     container_name: laravel_frontend
-
     ports:
-      - "8080:80"
-
-    volumes:
-      - frontend_data:/var/www/frontend-data
-
+      - "8081:80"
     depends_on:
       - backend
-
     networks:
       - laravel_network
-
 
   backend:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
-
     container_name: laravel_backend
-
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:-}
+      APP_URL: http://localhost:8081
+      DB_CONNECTION: mysql
+      DB_HOST: database
+      DB_PORT: "3306"
+      DB_DATABASE: laravel
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
     volumes:
       - backend_data:/var/www/storage
-
     depends_on:
       database:
         condition: service_healthy
-
     networks:
       - laravel_network
 
-
   database:
     image: mysql:8.0
-
     container_name: laravel_database
-
     restart: unless-stopped
-
     environment:
       MYSQL_DATABASE: laravel
       MYSQL_USER: laravel
       MYSQL_PASSWORD: secret
       MYSQL_ROOT_PASSWORD: rootsecret
-
-    ports:
-      - "3306:3306"
-
     volumes:
       - mysql_data:/var/lib/mysql
-
     healthcheck:
       test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-uroot",
-          "-prootsecret"
-        ]
-
+        - CMD
+        - mysqladmin
+        - ping
+        - -h
+        - localhost
+        - -uroot
+        - -prootsecret
       interval: 10s
       timeout: 5s
       retries: 5
-
     networks:
       - laravel_network
 
-
 volumes:
-
-  frontend_data:
-    name: laravel_frontend_data
-
   backend_data:
     name: laravel_backend_data
-
   mysql_data:
     name: laravel_mysql_data
 
-
 networks:
-
   laravel_network:
     name: laravel_network
