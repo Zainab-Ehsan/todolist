@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        COMPOSE_PROJECT_NAME = 'laravel-todolist'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git rev-parse --short HEAD'
+            }
+        }
+
+        stage('Validate Configuration') {
+            steps {
+                sh 'docker compose config -q'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker compose build backend frontend'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'BUILD SUCCESSFUL: Docker images are ready for testing.'
+        }
+        failure {
+            echo 'BUILD FAILED: Check the Console Output.'
+        }
+    }
+}

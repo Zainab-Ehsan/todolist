@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        COMPOSE_PROJECT_NAME = 'laravel-todolist'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git rev-parse --short HEAD'
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                withCredentials([
+                    string(
+                        credentialsId: 'laravel-app-key',
+                        variable: 'APP_KEY'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+
+                        test -n "$APP_KEY" || {
+                            echo "APP_KEY credential is missing"
+                            exit 1
+                        }
+
+                        docker compose config -q
+                        docker compose up -d --remove-orphans
+
+                        echo "Waiting for MySQL to become healthy..."
+
+                        status=""
+                        for i in $(seq 1 30); do
+                            status=$(docker inspect \
+                              --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+                              laravel_database 2>/dev/null || true)
+
+                            if [ "$status" = "healthy" ]; then
+                                break
+                            fi
+
+                            sleep 2
+                        done
+
+                        if [ "$status" != "healthy" ]; then
+                            echo "Database did not become healthy in time."
+                            docker compose ps
+                            exit 1
+                        fi
+
+                        docker compose exec -T backend \
+                          php artisan migrate --force
+
+                        docker compose exec -T backend \
+                          php artisan config:clear
+
+                        docker compose ps
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'DEPLOY SUCCESSFUL: Application is deployed.'
+        }
+        failure {
+            echo 'DEPLOY FAILED: Check the Console Output.'
+        }
+    }
+}

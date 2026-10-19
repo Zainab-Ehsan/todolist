@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        COMPOSE_PROJECT_NAME = 'laravel-todolist'
+        TEST_APP_KEY = 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git rev-parse --short HEAD'
+            }
+        }
+
+        stage('Validate Configuration') {
+            steps {
+                sh 'docker compose config -q'
+            }
+        }
+
+        stage('Run Laravel Tests') {
+            steps {
+                sh '''
+                    docker compose run --rm --no-deps \
+                      -e APP_ENV=testing \
+                      -e APP_KEY="$TEST_APP_KEY" \
+                      -e DB_CONNECTION=sqlite \
+                      -e DB_DATABASE=:memory: \
+                      -e CACHE_STORE=array \
+                      -e SESSION_DRIVER=array \
+                      -e QUEUE_CONNECTION=sync \
+                      backend php artisan test
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'TEST SUCCESSFUL: All Laravel tests passed.'
+        }
+        failure {
+            echo 'TEST FAILED: Deployment must not proceed.'
+        }
+    }
+}
